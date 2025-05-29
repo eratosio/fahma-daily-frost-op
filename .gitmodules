@@ -1,0 +1,3 @@
+[submodule "lib/clearnights_op"]
+	path = lib/clearnights_op
+	url = https://github.com/eratosio/fahma-clearnights-op.git

@@ -1,0 +1,14 @@
+[project]
+name = "clearnights"
+version = "1.0.0"
+dependencies = [
+    "pandas~=2.0.0",
+    "astral==3.2",
+    "timezonefinder~=6.3.0",
+    "pytz==2024.1"
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+

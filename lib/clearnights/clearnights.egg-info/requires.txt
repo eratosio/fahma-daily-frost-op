@@ -1,0 +1,4 @@
+pandas~=2.0.0
+astral==3.2
+timezonefinder~=6.3.0
+pytz==2024.1

@@ -1,0 +1,49 @@
+"@id": ern:e-pn.io:resource:csiro.blocks.fahma.daily.frost.metrics
+"@type": ern:e-pn.io:schema:block
+name: Frost Metrics On Demand
+description: |
+  ### Prototype Notes:
+
+    | Input Name | Input Example | Type    | 
+    |------------|---------------|---------|
+    | geom       | POLYGON((145.87 -34.69,145.87 -34.64, 145.92 -34.64,145.92 -34.69,145.87 -34.69)) | WKT string of polygon or multipolygon      |
+    | start_date   | 2024-06-02        | string       |
+    | end_date   | 2024-06-04        | string       |
+    | frost_threshold  | 1        | number       |
+    | duration_threshold  | 1        | number       |
+
+   
+    Current location available: *All locations within Australia 
+
+    Time zone: *UTC
+
+    Minimum temperature, Frost Hours and Duration mapping that derived from the 2km Cloud Masked Himawari8 Land Surface Temperature (LST) for a given time and polygon of interest.
+
+    The Model returns 3 NetCDF Dataset, with value for every 10 minute interval over the night, with the following values:
+
+    All values are calculate over the night of interest:
+
+    - Minimum Overnight Temperature (C)
+    - Duration Less than duration threshold (User Set) (Hours)
+    - Frost Hours (time*magnitude<frost threshold) 
+
+    With index:
+
+    - lat: All latitude values within the range of polygon
+    - lon: All longitude values within the range of polygon
+    - time: Every 10 minutes interval in UTC
+
+    The output is an Eratos gridded dataset, which can ideally be accessed via the API or SDK. Once the model completes its run successfully, the resource ERN will be available in the top right corner. But it also can be downloaded as a netcdf to read locally.
+
+    "This product is a prototype and has not yet been validated. Any results from this product are to be used at your own risk and with the understanding that this product has not undergone formal validation."
+
+dependsOn:
+    - ern:e-pn.io:resource:csiro.blocks.himawari.lst.masked.2km
+primary: ern:e-pn.io:resource:csiro.operators.daily.frost.metrics
+creator: ern:e-pn.io:resource:eratos.creator.csiro
+licenses:
+    - ern:e-pn.io:resource:eratos.licenses.eratoscommunity
+pricing:
+    - ern:e-pn.io:resource:eratos.pricing.premiumincluded
+visualisation:
+  icon: Frost

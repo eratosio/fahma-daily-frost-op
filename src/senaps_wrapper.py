@@ -4,7 +4,7 @@ import json
 from as_models.models import model
 from as_models.runtime.python import Context
 
-from eratos.creds import JobKeyCreds
+from eratos.creds import JobKeyCreds, AccessTokenCreds
 from eratos.adapter import Adapter
 from eratos.operator import Operator
 from eratos.resource import Resource
@@ -26,24 +26,26 @@ def load_json_doc(context: Context, id, reqValue: bool = True):
         raise KeyError(f"{id} is not valid JSON")
 
 
-@model("fahma.operators.daily.frost.metrics")
+@model("csiro.operators.daily.frost.metrics")
 def eratos_operator_wrapper(context: Context):
     # Load the Eratos inputs.
     config = load_json_doc(context, "config")
     secrets = load_json_doc(context, "secrets")
 
     # Load the operator.
-    if "tracker" not in secrets:
-        raise ValueError("expected a tracker property in secrets")
-    if "jobKey" not in secrets:
-        raise ValueError("expected a jobKey property in secrets")
+    if "tracker" in secrets and "jobKey" in secrets:
+        creds = JobKeyCreds(key=secrets["jobKey"], tracker=secrets["tracker"])
+    elif "id" in secrets and "secret" in secrets:
+        creds = AccessTokenCreds(**secrets)
+    else:
+        raise Exception("Secrets do not contain valid credentials")
 
-    creds = JobKeyCreds(secrets["jobKey"], tracker=secrets["tracker"])
     adapter = Adapter(creds=creds)
+    adapter._senaps_context = context
 
     # Load the operator.
     op = Operator(
-        adapter, ern="ern:e-pn.io:resource:fahma.operators.daily.frost.metrics"
+        adapter, ern="ern:e-pn.io:resource:csiro.operators.daily.frost.metrics"
     )
 
     # Load the operator inputs.

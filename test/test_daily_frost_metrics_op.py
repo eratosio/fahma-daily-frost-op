@@ -7,7 +7,7 @@ import random
 from datetime import datetime, timedelta
 
 
-def run_app(g, night_of, t):
+def test_run_app():
     """Runs the model asynchronously for a given WKT file."""
     load_dotenv()
     docker_client = APIClient()
@@ -16,7 +16,7 @@ def run_app(g, night_of, t):
         docker_client,
     )
     wait_time = 5
-
+    g = "MULTIPOLYGON (((136.173976025327 -33.0823350440668,136.238068475586 -33.0865101897404,136.23454984744 -33.1405244726167,136.170457397181 -33.1363493269432,136.173976025327 -33.0823350440668)))"
     start_date = "2025-04-01"
     end_date = "2025-04-10"
     duration_threshold = 1

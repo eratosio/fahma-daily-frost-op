@@ -1,7 +1,0 @@
-Metadata-Version: 2.1
-Name: clearnights
-Version: 1.0.0
-Requires-Dist: pandas~=2.0.0
-Requires-Dist: astral==3.2
-Requires-Dist: timezonefinder~=6.3.0
-Requires-Dist: pytz==2024.1

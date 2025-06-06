@@ -3,7 +3,7 @@ from eratos.operator import operator
 from daily_frost_metrics_on_demand import daily_frost_metrics
 from typing import Union
 
-@operator('ern:e-pn.io:resource:csiro.operators.daily.frost.metrics')
+@operator('ern:e-pn.io:resource:fahma.operators.daily.frost.metrics')
 def entry(
         context,
         start_date: str,

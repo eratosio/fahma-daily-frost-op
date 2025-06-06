@@ -26,7 +26,7 @@ def load_json_doc(context: Context, id, reqValue: bool = True):
         raise KeyError(f"{id} is not valid JSON")
 
 
-@model("csiro.operators.daily.frost.metrics")
+@model("fahma.operators.daily.frost.metrics")
 def eratos_operator_wrapper(context: Context):
     # Load the Eratos inputs.
     config = load_json_doc(context, "config")
@@ -45,7 +45,7 @@ def eratos_operator_wrapper(context: Context):
 
     # Load the operator.
     op = Operator(
-        adapter, ern="ern:e-pn.io:resource:csiro.operators.daily.frost.metrics"
+        adapter, ern="ern:e-pn.io:resource:fahma.operators.daily.frost.metrics"
     )
 
     # Load the operator inputs.

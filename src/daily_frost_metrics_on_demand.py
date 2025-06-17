@@ -55,7 +55,6 @@ def load_mask_data(
     except Exception as e:
         raise ValueError("A WKT input is necessary")
 
-
     try:
         start_time = datetime.strptime(start_time, "%Y-%m-%d")
         end_time = datetime.strptime(end_time, "%Y-%m-%d")
@@ -90,7 +89,7 @@ def load_mask_data(
             ).sel(
                 lat=slice(min_lat, max_lat),
                 lon=slice(min_lon, max_lon),
-                time=slice(start_date, end_date),
+                time=slice(start_time, end_time),
             )
         )
         for year in range(start_year, end_year + 1)
@@ -163,7 +162,7 @@ def load_mask_data(
 
     print(f"Loading raw lst data from {start_time} to {end_time} in {polygon}")
     raw_lst_slice = dataset.pipe(preprocessing).load() - 273.15
-    raw_lst_slice.load().to_netcdf("test/data/raw_lst.nc")
+    # raw_lst_slice.load().to_netcdf("test/data/raw_lst.nc")
     combined_mask = night_extended * mask['lst_stage1_mask']
     masked_lst = raw_lst_slice.where(combined_mask)
 
@@ -175,7 +174,9 @@ def push_to_platform(
         fname: str,
         ecreds: AccessTokenCreds,
         geom: str,
-        td: str
+        td: str,
+        start_date: str,
+        end_date: str
     ):
     data_fname = f"{fname}.nc"
     data_file_path = os.path.join(td, data_fname)
@@ -183,7 +184,6 @@ def push_to_platform(
     metrics.load()
     metrics.to_netcdf(
         data_file_path,
-        engine = 'h5netcdf',
         encoding={
             f"{fname}": {"zlib": True, "complevel": 4,
                          "fletcher32": True}
@@ -195,7 +195,7 @@ def push_to_platform(
         content={
             "@type": "ern:e-pn.io:schema:dataset",
             "type": "ern:e-pn.io:resource:eratos.dataset.type.gridded",
-            "name": "Clearnights Gridded Test",
+            "name": f"frost_metrics_{fname}",
             "description": f"Clearnights data over polygon {polygon} for the period {start_date} to {end_date}",
             "updateSchedule": "ern:e-pn.io:resource:eratos.schedule.noupdate",
             "file": data_fname,
@@ -213,6 +213,10 @@ def push_to_platform(
         connectorProps=props,
     )
     logger.info(f'{fname}.nc is successfully pushed to Eratos, {resource.ern()}')
+    logger.info(
+        "Resulting resource manifest - \n %s",
+        json.dumps(json.loads(resource.json()), indent=4),
+    )
 
     return resource
 
@@ -276,19 +280,18 @@ def daily_frost_metrics(
     logger.info("Creating Eratos resource")
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        min_temp_nc = push_to_platform(metrics=min_temp, fname="min_temp", ecreds=ecreds, geom=geom, td=temp_dir)
-        frost_hours_nc = push_to_platform(metrics=daily_weighted_frost, fname="frost_hours", ecreds=ecreds, geom=geom, td=temp_dir)
-        duration_nc = push_to_platform(metrics=daily_duration, fname="duration", ecreds=ecreds, geom=geom, td=temp_dir)
+        min_temp_nc = push_to_platform(metrics=min_temp, fname="min_temp", ecreds=ecreds, geom=geom, td=temp_dir, start_date=start_date, end_date=end_date)
+        frost_hours_nc = push_to_platform(metrics=daily_weighted_frost, fname="frost_hours", ecreds=ecreds, geom=geom, td=temp_dir, start_date=start_date, end_date=end_date)
+        duration_nc = push_to_platform(metrics=daily_duration, fname="duration", ecreds=ecreds, geom=geom, td=temp_dir, start_date=start_date, end_date=end_date)
 
 
         outputs = {
             "frost_metrics_min_temp": min_temp_nc,
-            "frost_metrics_frost_hours": frost_hours_nc,
-            "frost_metrics_duration": duration_nc
+            "frost_metrics_frost_hours": json.dumps(frost_hours_nc),
+            "frost_metrics_duration": json.dumps(duration_nc)
         }
 
-
-    return outputs
+        return outputs
 
 
 if __name__ == '__main__':

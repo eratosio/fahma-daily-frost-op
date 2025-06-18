@@ -1,0 +1,142 @@
+{
+  "baseImage": "6cd2f899-b5f1-444b-afbe-ee4a4eaec1bc",
+  "organisationId": "eratos",
+  "groupIds": [
+    "eratos_managed_operators"
+  ],
+  "entrypoint": "senaps_wrapper.py",
+  "dependencies": [
+    {
+        "name": "Cython>=4.1.2",
+        "provider": "PIP"
+    },
+    {
+        "name": "pandas~=2.0.0",
+        "provider": "PIP"
+    },
+    {
+      "name": "git",
+      "provider": "APT"
+    },
+    {
+      "name": "dependencies/clearnights-1.0.1-py3-none-any.whl",
+      "provider": "PIP"
+    },
+    {
+      "name": "dependencies/clearnights_on_demand_operator-0.1.0-py3-none-any.whl",
+      "provider": "PIP"
+    },
+    {
+        "name": "h5netcdf>=1.6.1",
+        "provider": "PIP"
+    },
+    {
+        "name": "numpy~=1.26.4",
+        "provider": "PIP"
+    },
+    {
+        "name": "eratos-xarray>=0.1.8",
+        "provider": "PIP"
+    },
+    {
+        "name": "pyarrow>=20.0.0",
+        "provider": "PIP"
+    },
+    {
+        "name": "eratos-xarray>=0.1.8",
+        "provider": "PIP"
+    },
+    {
+        "name": "pyarrow>=20.0.0",
+        "provider": "PIP"
+    },
+    {
+        "name": "dask[complete]>=2025.4.1",
+        "provider": "PIP"
+    },
+    {
+        "name": "dask[distributed]>=2025.4.1",
+        "provider": "PIP"
+    }
+  ],
+  "models": [
+    {
+      "id": "fahma.operators.daily.frost.metrics",
+      "name": "Frost Metrics On Demand",
+      "version": "0.0.1",
+      "description": "Apply the Clearnights mask on raw LST, to calculate the frost metrics over input geom and dates",
+      "ports": [
+        {
+          "portName": "config",
+          "required": true,
+          "type": "document",
+          "description": "Configuration to be passed to the operator.",
+          "direction": "input"
+        },
+        {
+          "portName": "secrets",
+          "required": true,
+          "type": "document",
+          "description": "Secrets to be passed to the operator.",
+          "direction": "input"
+        },
+        {
+          "portName": "input_geom",
+          "required": true,
+          "type": "document",
+          "description": "Polygon as WKT string",
+          "direction": "input"
+        },
+        {
+          "portName": "input_duration_threshold",
+          "required": false,
+          "type": "document",
+          "description": "duration threshold",
+          "direction": "input"
+        },
+        {
+          "portName": "input_frost_threshold",
+          "required": false,
+          "type": "document",
+          "description": "frost threshold",
+          "direction": "input"
+        },
+        {
+          "portName": "input_start_date",
+          "required": true,
+          "type": "document",
+          "description": "start date in format %Y-%m-%d",
+          "direction": "input"
+        },
+        {
+          "portName": "input_end_date",
+          "required": true,
+          "type": "document",
+          "description": "end date in format %Y-%m-%d",
+          "direction": "input"
+        },
+        {
+          "portName": "output_frost_metrics_min_temp",
+          "required": false,
+          "type": "document",
+          "description": "ERN for frost metrics Minimum Temperature dataset",
+          "direction": "output"
+        },
+        {
+          "portName": "output_frost_metrics_frost_hours",
+          "required": false,
+          "type": "document",
+          "description": "ERN for frost metrics Frost Hours dataset",
+          "direction": "output"
+        },
+        {
+          "portName": "output_frost_metrics_duration",
+          "required": false,
+          "type": "document",
+          "description": "ERN for frost metrics Duration dataset",
+          "direction": "output"
+        }
+      ]
+    }
+  ]
+}

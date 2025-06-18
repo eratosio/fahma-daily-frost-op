@@ -3,8 +3,7 @@ from docker import APIClient
 import os
 import pytest
 from dotenv import load_dotenv
-import random
-from datetime import datetime, timedelta
+
 
 
 def test_run_app():

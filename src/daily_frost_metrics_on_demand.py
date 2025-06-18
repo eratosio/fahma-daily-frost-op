@@ -1,5 +1,7 @@
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from typing import Dict
+
 from clearnights_on_demand.clearnights_at_point import \
     process_clearnights_per_group
 import eratos_xarray
@@ -26,7 +28,7 @@ def load_mask_data(
         start_time: str,
         end_time: str,
         geom: str,
-        ecreds: AccessTokenCreds,
+        ecreds: BaseCreds,
         clearnights_kwargs: dict
 ) -> xr.Dataset:
     """
@@ -172,7 +174,7 @@ def load_mask_data(
 def push_to_platform(
         metrics: xr.Dataset,
         fname: str,
-        ecreds: AccessTokenCreds,
+        ecreds: BaseCreds,
         geom: str,
         td: str,
         start_date: str,
@@ -184,6 +186,7 @@ def push_to_platform(
     metrics.load()
     metrics.to_netcdf(
         data_file_path,
+        engine="h5netcdf",
         encoding={
             f"{fname}": {"zlib": True, "complevel": 4,
                          "fletcher32": True}
@@ -228,15 +231,17 @@ def daily_frost_metrics(
         frost_threshold: float,
         duration_threshold: float,
         ecreds: BaseCreds = None,
+        secret: Dict[str, str] = None,
 ):
-    f = open("secret.json")
-    data = json.load(f)
-
-    eratos_key = data['eratos_key']
-    eratos_secret = data["eratos_secret"]
-
-    secret = {'id': eratos_key,
-              'secret': eratos_secret}
+    # for local testing
+    # f = open("secret.json")
+    # data = json.load(f)
+    #
+    # eratos_key = data['eratos_key']
+    # eratos_secret = data["eratos_secret"]
+    #
+    # secret = {'id': eratos_key,
+    #           'secret': eratos_secret}
     if secret is not None:
         ecreds = AccessTokenCreds(**secret)
 
@@ -287,8 +292,8 @@ def daily_frost_metrics(
 
         outputs = {
             "frost_metrics_min_temp": min_temp_nc,
-            "frost_metrics_frost_hours": json.dumps(frost_hours_nc),
-            "frost_metrics_duration": json.dumps(duration_nc)
+            "frost_metrics_frost_hours": frost_hours_nc,
+            "frost_metrics_duration": duration_nc
         }
 
         return outputs

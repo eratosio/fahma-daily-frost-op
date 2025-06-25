@@ -19,7 +19,7 @@
       "provider": "APT"
     },
     {
-      "name": "dependencies/clearnights-1.0.1-py3-none-any.whl",
+      "name": "dependencies/clearnights-2.0.1-py3-none-any.whl",
       "provider": "PIP"
     },
     {
@@ -32,14 +32,6 @@
     },
     {
         "name": "numpy~=1.26.4",
-        "provider": "PIP"
-    },
-    {
-        "name": "eratos-xarray>=0.1.8",
-        "provider": "PIP"
-    },
-    {
-        "name": "pyarrow>=20.0.0",
         "provider": "PIP"
     },
     {

@@ -1,12 +1,13 @@
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Dict
-
+import h5netcdf
 from clearnights_on_demand.clearnights_at_point import \
     process_clearnights_per_group
 import eratos_xarray
 import xarray as xr
-from datetime import timedelta
+from shapely.geometry import Polygon, MultiPolygon
 import datetime
 from dask import delayed
 import functools
@@ -16,19 +17,29 @@ from eratos.dsutil.netcdf import gridded_geotime_netcdf_props
 import json
 import logging
 from shapely import wkt
-from timezonefinder import TimezoneFinder
 from eratos.creds import AccessTokenCreds, BaseCreds
+from eratos_xarray.backend.eratos_ import EratosDataStore
 import os
-from datetime import datetime
+from pyproj import Geod
+from datetime import datetime, timedelta
 from clearnights.clearnights import ClearNights
+from shapely.errors import WKTReadingError
 import numpy as np
 
 logger = logging.getLogger()
+
+def load_dataset_for_year(year, lst_ern, adapter, preprocessing):
+    resource = adapter.Resource(lst_ern.format(year=year))
+    data = resource.data()
+    gapi = data.gapi()
+    store = EratosDataStore(gapi)
+    return xr.open_dataset(store).pipe(preprocessing)
+
 def load_mask_data(
-        start_time: str,
-        end_time: str,
-        geom: str,
-        ecreds: BaseCreds,
+        start_time: datetime,
+        end_time: datetime,
+        polygon: Polygon|MultiPolygon,
+        eadapter: Adapter,
         clearnights_kwargs: dict
 ) -> xr.Dataset:
     """
@@ -41,8 +52,8 @@ def load_mask_data(
         start time in the format YYYY-MM-DD(optional, if not set, default will be 2025-01-01),
         currently only supports the date in 2025
     end_time: str,
-    geom: str, geometry in WKT format (optional, if not set, default will be the whole Australia)
-    secret: dict
+    polygon: Polygon or MultiPolygon,
+    eadapter: Adapter
     returns:
     -----------
     mask: xarray DataArray, ClearNights mask
@@ -50,21 +61,9 @@ def load_mask_data(
     masked_lst: xarray DataArray, masked lst data
     """
 
-    try:
-        polygon = wkt.loads(geom)
-        min_lon, min_lat, max_lon, max_lat = polygon.bounds
-        print(f"Polygon bounds: {min_lon}, {min_lat}, {max_lon}, {max_lat}")
-    except Exception as e:
-        raise ValueError("A WKT input is necessary")
+    min_lon, min_lat, max_lon, max_lat = polygon.bounds
+    print(f"Polygon bounds: {min_lon}, {min_lat}, {max_lon}, {max_lat}")
 
-    try:
-        start_time = datetime.strptime(start_time, "%Y-%m-%d")
-        end_time = datetime.strptime(end_time, "%Y-%m-%d")
-        print(f"Start date: {start_time}")
-        print(f"End date: {end_time}")
-    except Exception as e:
-        raise ValueError("start_time and end_time must be provided")
-    # Convert the string to a datetime object
 
     preprocessing = lambda x: x.sel(lat=slice(min_lat, max_lat),
                                     lon=slice(min_lon, max_lon),
@@ -82,28 +81,17 @@ def load_mask_data(
         "Reading in Himawari Satelitte Data for years %d - %d", start_year,
         end_year
     )
-
-    datasets = [
-        (
-            xr.open_dataset(
-                lst_ern.format(year=year), engine="eratos",
-                eratos_auth=ecreds
-            ).sel(
-                lat=slice(min_lat, max_lat),
-                lon=slice(min_lon, max_lon),
-                time=slice(start_time, end_time),
-            )
-        )
-        for year in range(start_year, end_year + 1)
-    ]
-
-    with ThreadPoolExecutor() as executor:
-        datasets = list(executor.map(lambda x: x.load(), datasets))
-    if len(datasets) > 1:
-        dataset = xr.concat(datasets, "time")
-
+    if start_year == end_year:
+        dataset = load_dataset_for_year(start_year, lst_ern, eadapter, preprocessing)
     else:
-        dataset = datasets[0]
+        with ThreadPoolExecutor() as executor:
+            datasets = list(executor.map(
+                lambda y: load_dataset_for_year(y, lst_ern, eadapter, preprocessing),
+                range(start_year, end_year + 1)
+            ))
+            datasets = [ds.load() for ds in datasets]  # force actual load
+        dataset = xr.concat(datasets, dim="time")
+
 
     clearnights = (
         dataset.to_dataframe()
@@ -163,7 +151,8 @@ def load_mask_data(
     )
 
     print(f"Loading raw lst data from {start_time} to {end_time} in {polygon}")
-    raw_lst_slice = dataset.pipe(preprocessing).load() - 273.15
+    KELVIN_TO_CELSIUS = -273.15
+    raw_lst_slice = dataset.pipe(preprocessing).load() + KELVIN_TO_CELSIUS
     # raw_lst_slice.load().to_netcdf("test/data/raw_lst.nc")
     combined_mask = night_extended * mask['lst_stage1_mask']
     masked_lst = raw_lst_slice.where(combined_mask)
@@ -174,8 +163,8 @@ def load_mask_data(
 def push_to_platform(
         metrics: xr.Dataset,
         fname: str,
-        ecreds: BaseCreds,
-        geom: str,
+        eadapter: Adapter,
+        polygon: Polygon|MultiPolygon,
         td: str,
         start_date: str,
         end_date: str
@@ -189,11 +178,9 @@ def push_to_platform(
         engine="h5netcdf",
         encoding={
             f"{fname}": {"zlib": True, "complevel": 4,
-                         "fletcher32": True}
+                         "fletcher32": True, "_FillValue": np.finfo(np.float32).max}
         },
     )
-    polygon = wkt.loads(geom)
-    eadapter = Adapter(ecreds)
     resource = eadapter.Resource(
         content={
             "@type": "ern:e-pn.io:schema:dataset",
@@ -233,26 +220,60 @@ def daily_frost_metrics(
         ecreds: BaseCreds = None,
         secret: Dict[str, str] = None,
 ):
-    # for local testing
-    # f = open("secret.json")
-    # data = json.load(f)
-    #
-    # eratos_key = data['eratos_key']
-    # eratos_secret = data["eratos_secret"]
-    #
-    # secret = {'id': eratos_key,
-    #           'secret': eratos_secret}
+
     if secret is not None:
         ecreds = AccessTokenCreds(**secret)
 
     if ecreds is None:
         raise ValueError("Creds must be specified")
 
+    eadapter = Adapter(ecreds)
+
+    try:
+        polygon = wkt.loads(geom)
+
+    except WKTReadingError as e:
+        raise ValueError(f"Invalid WKT geometry: {geom}") from e
+    except AttributeError as e:
+        raise ValueError(
+            "Input must be a valid WKT string representing a polygon") from e
+
+
+    if type(polygon) is Polygon:
+        polygonList = [polygon]
+    elif type(polygon) is MultiPolygon:
+        polygonList = list(polygon.geoms)
+    else:
+        raise ValueError(
+            f'geom must be either a polygon or multiple polygons (found {polygon.geom_type})')
+
+    # Check we aren't processing more than 2000 sq.km .
+    geod = Geod(ellps="WGS84")
+    totalAreaKM = 0.0
+    for poly in polygonList:
+        totalAreaKM += abs(geod.geometry_area_perimeter(poly)[0]) / 1000000.0
+    print("Input polygon size: ", totalAreaKM)
+    if totalAreaKM > 2000:
+        print(f'total area of geometry {totalAreaKM} exceeds 2000 sq.km')
+        raise ValueError(
+            f'total area of geometry {totalAreaKM} exeeds 2000 sq.km, please enter a smaller area')
+
+    try:
+        start_time = datetime.strptime(start_date, "%Y-%m-%d")
+        end_time = datetime.strptime(end_date, "%Y-%m-%d")
+        print(f"Start date: {start_time}")
+        print(f"End date: {end_time}")
+    except ValueError as e:
+        raise ValueError("start_time and end_time must be provided")
+    if end_time - start_time > timedelta(days=2 * 365):
+        raise ValueError("Date span should not be exceed 2 years")
+
+
     masked_lst = load_mask_data(
-        start_time=start_date,
-        end_time=end_date,
-        geom=geom,
-        ecreds = ecreds,
+        start_time=start_time,
+        end_time=end_time,
+        polygon=polygon,
+        eadapter = eadapter,
         clearnights_kwargs={}
     )
 
@@ -260,7 +281,9 @@ def daily_frost_metrics(
     if bool(masked_lst['time'].isnull().all()):
         logger.info(
             "Found masked LST which time dimension is None, potentially caused by date mismatch between LST and CN files")
-        raise ValueError("Found masked LST which time dimension is None, potentially caused by date mismatch between LST and CN files, please contact admin")
+        raise ValueError("Found masked LST which time dimension is None, "
+                         "potentially caused by date mismatch between LST and CN files, "
+                         "please contact support@eratos.com")
 
     min_temp = masked_lst.groupby(masked_lst.time.dt.date).min(dim='time')
     min_temp['date'] = min_temp['date'].astype('datetime64[ns]')
@@ -284,10 +307,13 @@ def daily_frost_metrics(
 
     logger.info("Creating Eratos resource")
 
+
     with tempfile.TemporaryDirectory() as temp_dir:
-        min_temp_nc = push_to_platform(metrics=min_temp, fname="min_temp", ecreds=ecreds, geom=geom, td=temp_dir, start_date=start_date, end_date=end_date)
-        frost_hours_nc = push_to_platform(metrics=daily_weighted_frost, fname="frost_hours", ecreds=ecreds, geom=geom, td=temp_dir, start_date=start_date, end_date=end_date)
-        duration_nc = push_to_platform(metrics=daily_duration, fname="duration", ecreds=ecreds, geom=geom, td=temp_dir, start_date=start_date, end_date=end_date)
+        # base_dir = Path(__file__).resolve().parent
+        # temp_dir = base_dir.parent / 'test' / 'data'
+        min_temp_nc = push_to_platform(metrics=min_temp, fname="min_temp", eadapter=eadapter, polygon=polygon, td=temp_dir, start_date=start_date, end_date=end_date)
+        frost_hours_nc = push_to_platform(metrics=daily_weighted_frost, fname="frost_hours", eadapter=eadapter, polygon=polygon, td=temp_dir, start_date=start_date, end_date=end_date)
+        duration_nc = push_to_platform(metrics=daily_duration, fname="duration", eadapter=eadapter, polygon=polygon, td=temp_dir, start_date=start_date, end_date=end_date)
 
 
         outputs = {
@@ -299,16 +325,3 @@ def daily_frost_metrics(
         return outputs
 
 
-if __name__ == '__main__':
-    start_date = "2025-04-01"
-    geom = "MULTIPOLYGON (((136.173976025327 -33.0823350440668,136.238068475586 -33.0865101897404,136.23454984744 -33.1405244726167,136.170457397181 -33.1363493269432,136.173976025327 -33.0823350440668)))"
-    end_date = "2025-04-10"
-    frost_threshold = 0
-    duration_threshold = 0
-    daily_frost_metrics(
-        geom,
-        start_date,
-        end_date,
-        frost_threshold,
-        duration_threshold
-    )

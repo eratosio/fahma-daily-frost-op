@@ -14,11 +14,11 @@ inputs:
       required: true
     - name: duration_threshold
       type: number
-      description: Duration threshold
+      description: Duration threshold in degrees Celsius
       required: true
     - name: frost_threshold
       type: number
-      description: Frost Threshold
+      description: Frost-hours threshold in degrees Celsius
       required: true
     - name: start_date
       type: string

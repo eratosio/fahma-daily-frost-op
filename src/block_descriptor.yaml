@@ -2,38 +2,35 @@
 "@type": ern:e-pn.io:schema:block
 name: Frost Metrics On Demand
 description: |
-  ### Prototype Notes:
+  ### Notes:
 
-    | Input Name | Input Example | Type    | 
-    |------------|---------------|---------|
-    | geom       | POLYGON((145.87 -34.69,145.87 -34.64, 145.92 -34.64,145.92 -34.69,145.87 -34.69)) | WKT string of polygon or multipolygon      |
-    | start_date   | 2024-06-02        | string       |
-    | end_date   | 2024-06-04        | string       |
-    | frost_threshold  | 1        | number       |
-    | duration_threshold  | 1        | number       |
+    | Input Name | Input Example | Type    | Description   |
+    |------------|---------------|---------|---------------|
+    | geom       | POLYGON((145.87 -34.69,145.87 -34.64, 145.92 -34.64,145.92 -34.69,145.87 -34.69)) | WKT string of polygon or multipolygon      |Area of interest   |
+    | start_date   | 2024-06-02        | string       | Start date in format YYYY-MM-DD|
+    | end_date   | 2024-06-04        | string       | End date in format YYYY-MM-DD|
+    | frost_threshold  | 1        | number       | Frost-hours threshold in degrees Celsius|
+    | duration_threshold  | 1        | number       | Duration threshold in degrees Celsius|
 
-   
-    Current location available: *All locations within Australia 
+    The input polygon of interest should have a total area smaller than 2000 sq.km. The date span should be less than 2 years, i.e. less than 730 days. 
+  
+    The Model returns 3 NetCDF Dataset, with the following values over the night of interest, derived from the Himawari8 Land Surface Temperature (LST) with real time calculated Clearnight Cloud Mask(V2):
 
-    Time zone: *UTC
-
-    Minimum temperature, Frost Hours and Duration mapping that derived from the 2km Cloud Masked Himawari8 Land Surface Temperature (LST) for a given time and polygon of interest.
-
-    The Model returns 3 NetCDF Dataset, with value for every 10 minute interval over the night, with the following values:
-
-    All values are calculate over the night of interest:
-
-    - Minimum Overnight Temperature (C)
-    - Duration Less than duration threshold (User Set) (Hours)
-    - Frost Hours (time*magnitude<frost threshold) 
-
+    - Minimum Overnight Temperature (degrees Celsius): The lowest LST recorded during the night.
+    - Duration Less than duration threshold (Hours): Total hours during the night where LST is below a user-defined duration threshold.
+    - Frost Hours (Hours): Time-weighted cumulative hours where LST × time < user-defined frost threshold. 
+    
     With index:
 
     - lat: All latitude values within the range of polygon
     - lon: All longitude values within the range of polygon
-    - time: Every 10 minutes interval in UTC
-
+    - time: Night window corresponding to the date of interest(i.e. Starting from 6pm of the date of interest)
+    
+    _FillValue: np.finfo(np.float32).max
+    [Click here to download the FAHMA Data Products Developer Guide](20250530_FAHMA_Data_Products_Developer_Guide.pdf)
     The output are Eratos gridded datasets, which can ideally be accessed via the API or SDK. Once the model completes its run successfully, the resource ERN will be available in the top right corner. But it also can be downloaded as a netcdf to read locally.
+    
+    [Eratos Frost Metrics Example on Google Colab(Opens in same window)](https://colab.research.google.com/drive/1Ig8-4CMLIH-jZKufNsMA89crjWTh7-A9?usp=sharing)
 
     "This product is a prototype and has not yet been validated. Any results from this product are to be used at your own risk and with the understanding that this product has not undergone formal validation."
 

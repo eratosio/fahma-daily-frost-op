@@ -1,3 +1,5 @@
+import os
+
 from eratos.resource import Resource
 from eratos.operator import operator
 from daily_frost_metrics_on_demand import daily_frost_metrics
@@ -14,6 +16,7 @@ def entry(
     ):
     eadapter = context['adapter']
     ecreds = eadapter._tracker_exchange._creds
+
 
     return daily_frost_metrics(
         geom,

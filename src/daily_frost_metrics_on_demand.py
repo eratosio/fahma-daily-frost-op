@@ -1,6 +1,5 @@
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from typing import Dict
 import h5netcdf
 from clearnights_on_demand.clearnights_at_point import \
@@ -153,7 +152,6 @@ def load_mask_data(
     print(f"Loading raw lst data from {start_time} to {end_time} in {polygon}")
     KELVIN_TO_CELSIUS = -273.15
     raw_lst_slice = dataset.pipe(preprocessing).load() + KELVIN_TO_CELSIUS
-    # raw_lst_slice.load().to_netcdf("test/data/raw_lst.nc")
     combined_mask = night_extended * mask['lst_stage1_mask']
     masked_lst = raw_lst_slice.where(combined_mask)
 
@@ -221,6 +219,8 @@ def daily_frost_metrics(
         secret: Dict[str, str] = None,
 ):
 
+    # Validate the input parameters
+
     if secret is not None:
         ecreds = AccessTokenCreds(**secret)
 
@@ -268,7 +268,7 @@ def daily_frost_metrics(
     if end_time - start_time > timedelta(days=2 * 365):
         raise ValueError("Date span should not be exceed 2 years")
 
-
+    # Calculate Clearnight mask
     masked_lst = load_mask_data(
         start_time=start_time,
         end_time=end_time,
@@ -309,8 +309,7 @@ def daily_frost_metrics(
 
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        # base_dir = Path(__file__).resolve().parent
-        # temp_dir = base_dir.parent / 'test' / 'data'
+
         min_temp_nc = push_to_platform(metrics=min_temp, fname="min_temp", eadapter=eadapter, polygon=polygon, td=temp_dir, start_date=start_date, end_date=end_date)
         frost_hours_nc = push_to_platform(metrics=daily_weighted_frost, fname="frost_hours", eadapter=eadapter, polygon=polygon, td=temp_dir, start_date=start_date, end_date=end_date)
         duration_nc = push_to_platform(metrics=daily_duration, fname="duration", eadapter=eadapter, polygon=polygon, td=temp_dir, start_date=start_date, end_date=end_date)

@@ -180,17 +180,18 @@ def test_mem_usage_threading():
     time_log = []
     monitoring = True
 
-    def monitor_memory(interval=0.5):
+    def monitor_memory(interval=5):
         process = psutil.Process(os.getpid())
         start_time = time.time()
         while monitoring:
             current_time = time.time() - start_time
             mem = process.memory_info().rss / 1024 ** 2  # Convert to MB
+            print(f"[MEMORY] RSS: {mem:.2f} MB")
             time_log.append(current_time)
             memory_log.append(mem)
             time.sleep(interval)
 
-    sizes = ["medium", "large"]
+    sizes = ["small"]
     for size in sizes:
         memory_log = []
         time_log = []
@@ -235,6 +236,6 @@ def test_mem_usage_threading():
         plt.grid(True)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f"memory_usage_comparison_size_{size}.png", dpi=300)  # Save as high-res PNG
+        # plt.savefig(f"memory_usage_comparison_size_{size}.png", dpi=300)  # Save as high-res PNG
 
         plt.show()

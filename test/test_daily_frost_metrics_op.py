@@ -1,4 +1,5 @@
 import logging
+import math
 
 from eratos_docker.run import ModelRunner
 from docker import APIClient
@@ -87,31 +88,48 @@ def generate_random_convex_polygon(center_x, center_y, radius_km, n_points=10):
 
 def get_geometry(size):
     if size == "small":
-        return generate_random_convex_polygon(center_x=144.9, center_y=-37.8, radius_km=3)
-    elif size == "medium":
         return generate_random_convex_polygon(center_x=144.9, center_y=-37.8, radius_km=6)
+    elif size == "medium":
+        return generate_random_convex_polygon(center_x=144.9, center_y=-37.8, radius_km=12)
     elif size == "large":
-        return generate_random_convex_polygon(center_x=144.9, center_y=-37.8, radius_km=9)
+        return generate_random_convex_polygon(center_x=144.9, center_y=-37.8, radius_km=24)
+    elif size == 'huge':
+        return generate_random_convex_polygon(center_x=144.9, center_y=-37.8,
+                                              radius_km=48)
 
+def get_start_date(size):
+    if size == 'small':
+        return "2024-02-10"
+    elif size == 'medium':
+        return "2023-12-10"
+    elif size == 'large':
+        return "2023-8-10"
+    elif size == 'huge':
+        return "2022-4-15"
 def benchmark_run(model_func, geom, start_date, end_date, frost_threshold, duration_threshold, secret):
+    result=None
 
     def wrapped():
+        nonlocal result
+        result = model_func(
+            geom = geom,
+            start_date = start_date,
+            end_date = end_date,
+            frost_threshold = frost_threshold,
+            duration_threshold = duration_threshold,
+            secret = secret
+        )
 
-        return model_func(
-        geom = geom,
-        start_date = start_date,
-        end_date = end_date,
-        frost_threshold = frost_threshold,
-        duration_threshold = duration_threshold,
-        secret = secret
-    )
+        return result
 
     start = time.time()
     mem_usage = memory_usage(wrapped, max_iterations=1)
     elapsed = time.time() - start
     peak_mem = max(mem_usage)
+    dims = list(result.sizes.values())
+    total_dims = math.prod(dims[:3])
 
-    return elapsed, peak_mem
+    return elapsed, peak_mem, total_dims
 
 
 def test_local_frost_metrics_op_geom_size():
@@ -123,56 +141,72 @@ def test_local_frost_metrics_op_geom_size():
 
     secret = {'id': eratos_key,
               'secret': eratos_secret}
-    start_date = "2024-04-01"
-    end_date = "2025-04-10"
-    sizes = ["small", "medium", "large"]
+
+
+    end_date = "2024-04-10"
+    sizes = ["small", "medium", "large", "huge"]
     frost_threshold = 1
     duration_threshold = 1
 
+    elapsed_lst = []
+    peak_mem_lst = []
+    total_dims_lst = []
     # for size in sizes:
     for size in sizes:
+        start_date = get_start_date(size)
         geom = get_geometry(size)
-        elapsed, peak_mem = benchmark_run(daily_frost_metrics, geom, start_date,
+        elapsed, peak_mem, total_dims = benchmark_run(daily_frost_metrics, geom, start_date,
                                           end_date, frost_threshold,
                                           duration_threshold, secret)
+        elapsed_lst.append(elapsed)
+        peak_mem_lst.append(peak_mem)
+        total_dims_lst.append(total_dims)
 
         print(f"{size.capitalize()} geometry:")
         print(f"  Runtime: {elapsed:.2f} s")
         print(f"  Peak Memory: {peak_mem:.1f} MB\n")
+        print(f"  Dimensions: {total_dims} \n")
+    # Create figure and first axis
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+
+    # Plot peak_mem_lst on ax1 (left Y-axis)
+    ax1.plot(total_dims_lst, peak_mem_lst, 'o-', color='blue',
+             label='Memory (MB)')
+    ax1.set_xlabel('Dimension (time*lat*lon)')
+    ax1.set_ylabel('Memory (MB) (left Y-axis)', color='blue')
+    ax1.tick_params(axis='y', labelcolor='blue')
+
+    for i, j in zip(total_dims_lst, peak_mem_lst):
+        ax1.text(i, j, str(j), color='blue', fontsize=9, ha='left',
+                 va='bottom')
+
+    # Create second Y-axis sharing the same X-axis
+    ax2 = ax1.twinx()
+    ax2.plot(total_dims_lst, elapsed_lst, 's-', color='red',
+             label='Elapsed Time (s)')
+    ax2.set_ylabel('Elapsed Time (s) (right Y-axis)', color='red')
+    ax2.tick_params(axis='y', labelcolor='red')
+
+    # Annotate y2 values
+    for i, j in zip(total_dims_lst, elapsed_lst):
+        ax2.text(i, j, str(j), color='red', fontsize=9, ha='right',
+                 va='bottom')
+
+    # Add grid and title
+    ax1.grid(True)
+    plt.title('Memory Usage and Elapsed Time Over Dimensions')
+
+    # Add legends (note: we need to manually combine them from both axes)
+    lines_1, labels_1 = ax1.get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    plt.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
+
+    plt.tight_layout()
+    plt.savefig(f"peak_mem_elapse_time_v.s_dimension_w_label2.png",
+                dpi=300)  # Save as high-res PNG
+    plt.show()
 
 
-def get_start_date(size):
-    if size == 'small':
-        return "2024-03-20"
-    elif size == 'medium':
-        return "2024-2-20"
-    elif size == 'large':
-        return "2023-12-10"
-
-def test_local_frost_metrics_op_date_span():
-    f = open("../src/secret.json")
-    data = json.load(f)
-
-    eratos_key = data['eratos_key']
-    eratos_secret = data["eratos_secret"]
-
-    secret = {'id': eratos_key,
-              'secret': eratos_secret}
-    end_date = "2025-04-10"
-    sizes = ["small", "medium", "large"]
-    frost_threshold = 1
-    duration_threshold = 1
-    geom = get_geometry('small')
-    # for size in sizes:
-    size = 'large'
-    start_date = get_start_date(size)
-    elapsed, peak_mem = benchmark_run(daily_frost_metrics, geom, start_date,
-                                      end_date, frost_threshold,
-                                      duration_threshold, secret)
-
-    print(f"{size.capitalize()} geometry:")
-    print(f"  Runtime: {elapsed:.2f} s")
-    print(f"  Peak Memory: {peak_mem:.1f} MB\n")
 
 
 def test_mem_usage_threading():
@@ -239,3 +273,4 @@ def test_mem_usage_threading():
         # plt.savefig(f"memory_usage_comparison_size_{size}.png", dpi=300)  # Save as high-res PNG
 
         plt.show()
+

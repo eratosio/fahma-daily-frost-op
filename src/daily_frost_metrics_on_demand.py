@@ -75,7 +75,6 @@ def load_mask_data(
     start_year = start_time.year
     end_year = end_time.year
     lst_ern = "ern:e-pn.io:resource:csiro.blocks.himawari.lst.2km.24hr.{year}"
-
     logger.info(
         "Reading in Himawari Satelitte Data for years %d - %d", start_year,
         end_year

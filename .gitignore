@@ -7,3 +7,4 @@ test/data/
 .DS_Store
 __pycache__/
 src/Archive.zip
+.venv/

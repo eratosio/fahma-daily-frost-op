@@ -19,8 +19,8 @@ description: |
     The three gridded frost related variables as NetCDF datasets are as follows. 
 
     - Minimum Overnight Temperature (degrees Celsius): The lowest LST recorded during the night.
-    - Duration Less than duration threshold (Hours): Total hours during the night where LST is below a user-defined duration threshold.
-    - Frost Hours (Hours): Time-weighted cumulative hours where LST × time < user-defined frost threshold. 
+    - Duration Less than duration threshold (Hours): Total hours during the night where LST is below a user-defined temperature threshold.
+    - Frost Hours (Hours): Time-weighted cumulative hours(LST × time) where LST < user-defined temperature threshold. 
     
     Outputs are spatially gridded with:
   

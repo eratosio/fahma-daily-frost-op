@@ -1,0 +1,42 @@
+"@id": ern:e-pn.io:resource:fahma.operators.daily.frost.metrics
+"@owner" : ern:e-pn.io:resource:fahma.blocks.daily.frost.metrics
+"@type": ern:e-pn.io:schema:operator
+"@geo": POLYGON((112 -44.99365234375, 112 -10, 154.99609375 -10, 154.99609375 -44.99365234375, 112 -44.99365234375))
+name: Frost Metrics on Demand
+description: |
+   Computes Frost Metrics for a given date range and geometry, specified as a WKT geometry and start/end date.
+   This product is a prototype and has not yet been validated. Any results from this product are to be used at your own risk and with the understanding that this product has not undergone formal validation.
+type: Container
+inputs:
+    - name: geom
+      type: string
+      description: Geometry defined as WKT geometry that defines the portfolio of interest.
+      required: true
+    - name: duration_threshold
+      type: number
+      description: Duration threshold in degrees Celsius
+      required: true
+    - name: frost_threshold
+      type: number
+      description: Frost-hours threshold in degrees Celsius
+      required: true
+    - name: start_date
+      type: string
+      description: Start date in format yyyy-mm-dd
+      required: true
+    - name: end_date
+      type: string
+      description: End date in format yyyy-mm-dd
+      required: true
+outputs:
+    - name: frost_metrics_min_temp
+      type: resource
+      description: Minimum Temperature gridded dataset.
+    - name: frost_metrics_frost_hours
+      type: resource
+      description: Frost Hours gridded dataset.
+    - name: frost_metrics_duration
+      type: resource
+      description: Duration gridded dataset.
+senapsModel: fahma.operators.daily.frost.metrics
+senapsInstanceProfile: 4XL

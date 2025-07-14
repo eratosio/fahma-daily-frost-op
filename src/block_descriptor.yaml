@@ -1,0 +1,49 @@
+"@id": ern:e-pn.io:resource:fahma.blocks.daily.frost.metrics
+"@type": ern:e-pn.io:schema:block
+name: Frost Metrics On Demand
+description: |
+  ### Notes:
+
+    | Input Name | Input Example | Type    | Description   |
+    |------------|---------------|---------|---------------|
+    | geom       | POLYGON((145.87 -34.69,145.87 -34.64, 145.92 -34.64,145.92 -34.69,145.87 -34.69)) | WKT string of polygon or multipolygon      |Area of interest   |
+    | start_date   | 2024-06-02        | string       | Start date in format YYYY-MM-DD|
+    | end_date   | 2024-06-04        | string       | End date in format YYYY-MM-DD|
+    | frost_threshold  | 1        | number       | Temperature threshold in degrees Celsius|
+    | duration_threshold  | 1        | number       | Temperature threshold in degrees Celsius|
+
+    The input polygon of interest should have a total area smaller than 2000 sq.km. The date span should be less than 2 years, i.e. less than 730 days. 
+  
+    The on-demand 2km daily frost analysis operator processes Himawari8 Land Surface Temperature (LST) data using the latest Clearnight cloud mask algorithm. Unlike precomputed products, it dynamically generates cloud masks within the operator, based on user parameters. 
+    
+    The three gridded frost related variables as NetCDF datasets are as follows. 
+
+    - Minimum Overnight Temperature (degrees Celsius): The lowest LST recorded during the night.
+    - Duration Less than duration threshold (Hours): Total hours during the night where LST is below a user-defined temperature threshold.
+    - Frost Hours (Hours): Time-weighted cumulative hours(LST × time) where LST < user-defined temperature threshold. 
+    
+    Outputs are spatially gridded with:
+  
+    - Dimensions: Latitude (lat), Longitude (lon), and Time (night windows starting from sunset that day till sunrise next day +30mins)
+    - Coverage: Limited to the geographic bounds of the input polygon
+    - Missing Data: Represented by np.finfo(np.float32).max (3.4028235e+38)
+  
+    
+    The output are Eratos gridded datasets, which can ideally be accessed via the API or SDK. Once the model completes its run successfully, the resource ERN will be available in the top right corner. But it also can be downloaded as a netcdf to read locally.
+    
+    [Eratos Frost Metrics Example on Google Colab(Opens in same window)](https://colab.research.google.com/drive/1Ig8-4CMLIH-jZKufNsMA89crjWTh7-A9?usp=sharing)
+    
+    [FAHMA Data Products Developer Guide(Opens in same window)](https://github.com/eratosio/fahma-daily-frost-op/blob/feature/ed-2611-frost-metrics-standalone/src/20250530_FAHMA_Data_Products_Developer_Guide.pdf)
+
+    "This product is a prototype and has not yet been validated. Any results from this product are to be used at your own risk and with the understanding that this product has not undergone formal validation."
+
+dependsOn:
+    - ern:e-pn.io:resource:csiro.blocks.himawari.lst.masked.2km
+primary: ern:e-pn.io:resource:fahma.operators.daily.frost.metrics
+creator: ern:e-pn.io:resource:eratos.creator.csiro
+licenses:
+    - ern:e-pn.io:resource:eratos.licenses.eratoscommunity
+pricing:
+    - ern:e-pn.io:resource:eratos.pricing.premiumincluded
+visualisation:
+  icon: Frost

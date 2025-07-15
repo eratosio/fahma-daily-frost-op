@@ -7,4 +7,6 @@ test/data/
 .DS_Store
 __pycache__/
 src/Archive.zip
+src/Archive_cleaned.zip
+src/cleanup_zip.py
 .venv/

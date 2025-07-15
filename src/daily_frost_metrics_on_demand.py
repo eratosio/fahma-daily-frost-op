@@ -3,7 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict
 import h5netcdf
 from clearnights_on_demand.clearnights_at_point import \
-    process_clearnights_per_group
+     process_clearnights_xarray, \
+    load_himawari_datasets
 import eratos_xarray
 import xarray as xr
 from shapely.geometry import Polygon, MultiPolygon
@@ -35,8 +36,9 @@ def load_dataset_for_year(year, lst_ern, adapter, preprocessing):
     return xr.open_dataset(store).pipe(preprocessing)
 
 def load_mask_data(
-        start_time: datetime,
-        end_time: datetime,
+        start_time: str,
+        end_time: str,
+        ecreds: AccessTokenCreds,
         polygon: Polygon|MultiPolygon,
         eadapter: Adapter,
         clearnights_kwargs: dict
@@ -64,45 +66,25 @@ def load_mask_data(
     print(f"Polygon bounds: {min_lon}, {min_lat}, {max_lon}, {max_lat}")
 
 
-    preprocessing = lambda x: x.sel(lat=slice(min_lat, max_lat),
-                                    lon=slice(min_lon, max_lon),
-                                    time=slice(start_time, end_time))
-
     if not clearnights_kwargs:
         clearnights_kwargs = {}
 
     clearnights = ClearNights(clearnights_kwargs, tf_kwargs={"in_memory": True})
-    start_year = start_time.year
-    end_year = end_time.year
-    lst_ern = "ern:e-pn.io:resource:csiro.blocks.himawari.lst.2km.24hr.{year}"
-    logger.info(
-        "Reading in Himawari Satelitte Data for years %d - %d", start_year,
-        end_year
-    )
-    if start_year == end_year:
-        dataset = load_dataset_for_year(start_year, lst_ern, eadapter, preprocessing)
-    else:
-        with ThreadPoolExecutor() as executor:
-            datasets = list(executor.map(
-                lambda y: load_dataset_for_year(y, lst_ern, eadapter, preprocessing),
-                range(start_year, end_year + 1)
-            ))
-            datasets = [ds.load() for ds in datasets]  # force actual load
-        dataset = xr.concat(datasets, dim="time")
-
-
-    clearnights = (
-        dataset.to_dataframe()
-        .rename(columns={"lst": "lst_original"})
-        .groupby(["lat", "lon"])
-        .apply(lambda x: process_clearnights_per_group(x, clearnights))
+    himawari_data = load_himawari_datasets(
+        start_time,
+        end_time,
+        ecreds,
+        lat_min=min_lat,
+        lat_max=max_lat,
+        lon_min=min_lon,
+        lon_max=max_lon,
     )
 
-    clearnights['lst_stage1_mask'] = clearnights['lst_stage1_mask'].replace(255, np.nan)
+    clearnights_gridded = process_clearnights_xarray(
+        himawari_data, clearnights
+    )
 
-    clearnights_gridded = xr.Dataset.from_dataframe(clearnights[["lst_stage1_mask", "night"]])
-
-    mask = clearnights_gridded.pipe(preprocessing).load()
+    mask = clearnights_gridded.load()
     night = mask['night']
     night_data = night.data.astype(np.uint8)  # shape: (time, lat, lon)
     # Dimensions
@@ -150,7 +132,8 @@ def load_mask_data(
 
     print(f"Loading raw lst data from {start_time} to {end_time} in {polygon}")
     KELVIN_TO_CELSIUS = -273.15
-    raw_lst_slice = dataset.pipe(preprocessing).load() + KELVIN_TO_CELSIUS
+    raw_lst_slice = himawari_data.load() + KELVIN_TO_CELSIUS
+    mask['lst_stage1_mask'] = mask['lst_stage1_mask'].where((mask['lst_stage1_mask'] == 1) | (mask['lst_stage1_mask'] == 255), np.nan)
     combined_mask = night_extended * mask['lst_stage1_mask']
     masked_lst = raw_lst_slice.where(combined_mask)
 
@@ -269,8 +252,9 @@ def daily_frost_metrics(
 
     # Calculate Clearnight mask
     masked_lst = load_mask_data(
-        start_time=start_time,
-        end_time=end_time,
+        start_time=start_date,
+        end_time=end_date,
+        ecreds=ecreds,
         polygon=polygon,
         eadapter = eadapter,
         clearnights_kwargs={}
@@ -321,5 +305,31 @@ def daily_frost_metrics(
         }
 
         return outputs
+
+
+# if __name__ == '__main__':
+#     frost_threshold_lst = [0, 1]
+#     duration_threshold_lst = [0, 1]
+#     start_year = 2025
+#
+#     f = open("secret.json")
+#     data = json.load(f)
+#
+#     eratos_key = data['eratos_key']
+#     eratos_secret = data["eratos_secret"]
+#
+#     secret = {'id': eratos_key,
+#               'secret': eratos_secret}
+#
+#     geom = "POLYGON ((115.977173 -31.905541, 116.356201 -31.905541, 116.356201 -31.688445, 115.977173 -31.688445, 115.977173 -31.905541))"
+#
+#     daily_frost_metrics(
+#         geom=geom,
+#         duration_threshold=1,
+#         frost_threshold = 1,
+#         start_date ="2025-06-30",
+#         end_date = "2025-07-10",
+#         secret=secret
+#     )
 
 

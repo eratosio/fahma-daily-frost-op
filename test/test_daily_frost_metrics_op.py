@@ -40,18 +40,20 @@ def test_run_app():
     try:
         result_docs, model_errors = runner.run_model(
             initial_ports={
-                "input_geom": g,
-                "input_start_date": start_date,
-                "input_end_date": end_date,
-                "input_duration_threshold": duration_threshold,
-                "input_frost_threshold": frost_threshold,
+                "input_geom": json.dumps(g),
+                "input_start_date": json.dumps(start_date),
+                "input_end_date": json.dumps(end_date),
+                "input_duration_threshold":json.dumps(duration_threshold),
+                "input_frost_threshold": json.dumps(frost_threshold),
                 "config": {"anything": "e"},
                 "secrets": {
                     "id": os.getenv("ERATOS_KEY"),
                     "secret": os.getenv("ERATOS_SECRET"),
                 },
             },
-            bind_mounts={os.path.realpath('../src') : '/opt/model'})
+            bind_mounts={os.path.realpath('../src') : '/opt/model',
+                         os.path.realpath('../lib/clearnights/clearnights/'): '/usr/local/lib/python3.10/dist-packages/clearnights/',
+                         os.path.realpath('../lib/clearnights_op/src/clearnights_on_demand/'): '/usr/local/lib/python3.10/dist-packages/clearnights_on_demand/'})
         return result_docs
 
 

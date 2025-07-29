@@ -1,14 +1,10 @@
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict
+from typing import Dict, Optional
 import h5netcdf
-from clearnights_on_demand.clearnights_at_point import \
-     process_clearnights_xarray, \
-    load_himawari_datasets
 import eratos_xarray
 import xarray as xr
 from shapely.geometry import Polygon, MultiPolygon
-import datetime
 from dask import delayed
 import functools
 import dask.array as da
@@ -23,10 +19,50 @@ import os
 from pyproj import Geod
 from datetime import datetime, timedelta
 from clearnights.clearnights import ClearNights
+from clearnights.xarray import process_clearnights_xarray
 from shapely.errors import WKTReadingError
 import numpy as np
 
 logger = logging.getLogger()
+
+def load_himawari_datasets(
+    start_date: str,
+    end_date: str,
+    ecreds: BaseCreds,
+    lat_min: Optional[float] = None,
+    lat_max: Optional[float] = None,
+    lon_min: Optional[float] = None,
+    lon_max: Optional[float] = None,
+) -> xr.Dataset:
+    lst_ern = "ern:e-pn.io:resource:csiro.blocks.himawari.lst.2km.24hr.{year}"
+    start_year = datetime.strptime(start_date, "%Y-%m-%d").year
+    end_year = datetime.strptime(end_date, "%Y-%m-%d").year
+
+    logger.info(
+        "Reading in Himawari Satellite Data for years %d - %d", start_year, end_year
+    )
+
+
+    logger.info(
+        f"Slicing data to bbox lat: ({lat_min}, {lat_max}), lon: ({lon_min}, {lon_max}) time: {start_date} - {end_date}"
+    )
+    datasets = [
+        (
+            xr.open_dataset(
+                lst_ern.format(year=year), engine="eratos", eratos_auth=ecreds
+            ).sel(
+                lat=slice(lat_min, lat_max),
+                lon=slice(lon_min, lon_max),
+                time=slice(start_date, end_date),
+            )
+        )
+        for year in range(start_year, end_year + 1)
+    ]
+
+    with ThreadPoolExecutor() as executor:
+        datasets = list(executor.map(lambda x: x.load(), datasets))
+
+    return xr.concat(datasets, dim="time") if len(datasets) > 1 else datasets[0]
 
 def load_dataset_for_year(year, lst_ern, adapter, preprocessing):
     resource = adapter.Resource(lst_ern.format(year=year))
@@ -133,7 +169,7 @@ def load_mask_data(
     print(f"Loading raw lst data from {start_time} to {end_time} in {polygon}")
     KELVIN_TO_CELSIUS = -273.15
     raw_lst_slice = himawari_data.load() + KELVIN_TO_CELSIUS
-    mask['lst_stage1_mask'] = mask['lst_stage1_mask'].where((mask['lst_stage1_mask'] == 1) | (mask['lst_stage1_mask'] == 255), np.nan)
+    mask['lst_stage1_mask'] = mask['lst_stage1_mask'].where(mask['lst_stage1_mask'] == 1, np.nan)
     combined_mask = night_extended * mask['lst_stage1_mask']
     masked_lst = raw_lst_slice.where(combined_mask)
 

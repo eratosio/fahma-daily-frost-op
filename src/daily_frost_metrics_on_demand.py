@@ -46,11 +46,14 @@ def load_himawari_datasets(
     logger.info(
         f"Slicing data to bbox lat: ({lat_min}, {lat_max}), lon: ({lon_min}, {lon_max}) time: {start_date} - {end_date}"
     )
+
     datasets = [
         (
             xr.open_dataset(
                 lst_ern.format(year=year), engine="eratos", eratos_auth=ecreds
-            ).sel(
+            )
+            .sortby('time')
+            .sel(
                 lat=slice(lat_min, lat_max),
                 lon=slice(lon_min, lon_max),
                 time=slice(start_date, end_date),
@@ -169,6 +172,7 @@ def load_mask_data(
     print(f"Loading raw lst data from {start_time} to {end_time} in {polygon}")
     KELVIN_TO_CELSIUS = -273.15
     raw_lst_slice = himawari_data.load() + KELVIN_TO_CELSIUS
+    night_extended = night_extended.where(night_extended == 1, np.nan)
     mask['lst_stage1_mask'] = mask['lst_stage1_mask'].where(mask['lst_stage1_mask'] == 1, np.nan)
     combined_mask = night_extended * mask['lst_stage1_mask']
     masked_lst = raw_lst_slice.where(combined_mask)
@@ -363,9 +367,9 @@ def daily_frost_metrics(
 #         geom=geom,
 #         duration_threshold=1,
 #         frost_threshold = 1,
-#         start_date ="2025-06-30",
-#         end_date = "2025-07-10",
+#         start_date ="2025-08-05",
+#         end_date = "2025-08-06",
 #         secret=secret
 #     )
-
+#
 

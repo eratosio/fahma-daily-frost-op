@@ -173,10 +173,12 @@ def load_mask_data(
     KELVIN_TO_CELSIUS = -273.15
     raw_lst_slice = himawari_data.load() + KELVIN_TO_CELSIUS
     night_extended = night_extended.where(night_extended == 1, np.nan)
+    # print(np.unique(mask["lst_stage1_mask"].values))
     mask['lst_stage1_mask'] = mask['lst_stage1_mask'].where(mask['lst_stage1_mask'] == 1, np.nan)
+    # print(mask["lst_stage1_mask"].count().values)
     combined_mask = night_extended * mask['lst_stage1_mask']
-    masked_lst = raw_lst_slice.where(combined_mask)
-
+    # print(combined_mask.count().values)
+    masked_lst = raw_lst_slice.where(combined_mask == 1, np.nan)
     return masked_lst
 
 
@@ -327,7 +329,6 @@ def daily_frost_metrics(
     daily_duration = duration.groupby(duration.time.dt.date).sum(dim='time')
     daily_duration['date'] = daily_duration['date'].astype('datetime64[ns]')
     daily_duration = daily_duration.rename({"lst": "duration", 'date': 'time'})
-
     logger.info("Creating Eratos resource")
 
 
@@ -361,15 +362,15 @@ def daily_frost_metrics(
 #     secret = {'id': eratos_key,
 #               'secret': eratos_secret}
 #
-#     geom = "POLYGON ((115.977173 -31.905541, 116.356201 -31.905541, 116.356201 -31.688445, 115.977173 -31.688445, 115.977173 -31.905541))"
+#     geom = "POLYGON((145.87 -34.69,145.87 -34.64, 145.92 -34.64,145.92 -34.69,145.87 -34.69))"
 #
 #     daily_frost_metrics(
 #         geom=geom,
 #         duration_threshold=1,
-#         frost_threshold = 1,
-#         start_date ="2025-08-05",
-#         end_date = "2025-08-06",
+#         frost_threshold=1,
+#         start_date="2025-08-05",
+#         end_date="2025-08-05",
 #         secret=secret
 #     )
-#
+
 

@@ -126,58 +126,13 @@ def load_mask_data(
     mask = clearnights_gridded.load()
     night = mask['night']
     night_data = night.data.astype(np.uint8)  # shape: (time, lat, lon)
-    # Dimensions
-    time_len, lat_len, lon_len = night.shape
-    # Get the last index with value 1 for each (lat, lon)
-    # Mask where night == 1, then multiply by time indices
-    time_indices = np.arange(time_len)[:, None, None]  # shape: (time, 1, 1)
-    masked_indices = np.where(night_data == 1, time_indices, -1)
-    with np.errstate(invalid='ignore'):
-        last_1_idx = masked_indices.max(axis=0)  # shape: (lat, lon)
-
-    # Extend the 'night' mask by 3 steps forward in time (if within bounds)
-    night_data_extended = night_data.copy()
-
-    def make_mask(t_idx, y_idx, x_idx, shape):
-        mask = np.zeros(shape, dtype=np.uint8)
-        mask[t_idx, y_idx, x_idx] = 1
-        return mask
-
-    delayed_masks = []
-    for offset in range(1, 4):  # Extend by 1, 2, 3 steps
-        new_indices = last_1_idx + offset
-        valid = (new_indices >= 0) & (new_indices < time_len)
-        t, y, x = new_indices[valid], *np.where(valid)
-        # Delayed creation of the mask
-        mask_delayed = delayed(make_mask, name=f"make_mask_{offset}")(
-            np.asarray(t), np.asarray(y), np.asarray(x), night.shape)
-
-        # Convert to Dask array lazily
-        update_mask = da.from_delayed(mask_delayed, shape=night.shape,
-                                      dtype=np.uint8)
-        delayed_masks.append(update_mask)
-
-    combined_update_mask = functools.reduce(da.maximum, delayed_masks)
-    night_data_extended = da.maximum(night_data_extended,
-                                     combined_update_mask)
-    print(f"night_data_extended: {night_data_extended.shape}")
-    # Create a new DataArray with same coords and dims
-    night_extended = xr.DataArray(
-        night_data_extended,
-        coords=night.coords,
-        dims=night.dims,
-        name='night_extended'
-    )
 
     print(f"Loading raw lst data from {start_time} to {end_time} in {polygon}")
     KELVIN_TO_CELSIUS = -273.15
     raw_lst_slice = himawari_data.load() + KELVIN_TO_CELSIUS
-    night_extended = night_extended.where(night_extended == 1, np.nan)
-    # print(np.unique(mask["lst_stage1_mask"].values))
     mask['lst_stage1_mask'] = mask['lst_stage1_mask'].where(mask['lst_stage1_mask'] == 1, np.nan)
-    # print(mask["lst_stage1_mask"].count().values)
-    combined_mask = night_extended * mask['lst_stage1_mask']
-    # print(combined_mask.count().values)
+    combined_mask = night_data * mask['lst_stage1_mask']
+    combined_mask = combined_mask.assign_coords(time=raw_lst_slice['time'])
     masked_lst = raw_lst_slice.where(combined_mask == 1, np.nan)
     return masked_lst
 
@@ -348,29 +303,29 @@ def daily_frost_metrics(
         return outputs
 
 
-# if __name__ == '__main__':
-#     frost_threshold_lst = [0, 1]
-#     duration_threshold_lst = [0, 1]
-#     start_year = 2025
-#
-#     f = open("secret.json")
-#     data = json.load(f)
-#
-#     eratos_key = data['eratos_key']
-#     eratos_secret = data["eratos_secret"]
-#
-#     secret = {'id': eratos_key,
-#               'secret': eratos_secret}
-#
-#     geom = "POLYGON((145.87 -34.69,145.87 -34.64, 145.92 -34.64,145.92 -34.69,145.87 -34.69))"
-#
-#     daily_frost_metrics(
-#         geom=geom,
-#         duration_threshold=1,
-#         frost_threshold=1,
-#         start_date="2025-08-05",
-#         end_date="2025-08-05",
-#         secret=secret
-#     )
+if __name__ == '__main__':
+    frost_threshold_lst = [0, 1]
+    duration_threshold_lst = [0, 1]
+    start_year = 2025
+
+    f = open("secret.json")
+    data = json.load(f)
+
+    eratos_key = data['eratos_key']
+    eratos_secret = data["eratos_secret"]
+
+    secret = {'id': eratos_key,
+              'secret': eratos_secret}
+
+    geom = "POLYGON((145.87 -34.69,145.87 -34.64, 145.92 -34.64,145.92 -34.69,145.87 -34.69))"
+
+    daily_frost_metrics(
+        geom=geom,
+        duration_threshold=1,
+        frost_threshold=1,
+        start_date="2025-08-05",
+        end_date="2025-08-05",
+        secret=secret
+    )
 
 

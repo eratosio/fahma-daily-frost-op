@@ -43,7 +43,7 @@
     {
       "id": "fahma.operators.daily.frost.metrics",
       "name": "Frost Metrics On Demand",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "description": "Apply the Clearnights mask on raw LST, to calculate the frost metrics over input geom and dates",
       "ports": [
         {

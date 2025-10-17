@@ -23,7 +23,13 @@ from clearnights.xarray import process_clearnights_xarray
 from shapely.errors import WKTReadingError
 import numpy as np
 
-logger = logging.getLogger()
+from daily_frost_metrics.process_data_into_daily_output import process_min_temp, process_daily_frost_duration
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def load_himawari_datasets(
     start_date: str,
@@ -152,7 +158,7 @@ def push_to_platform(
     metrics.load()
     metrics.to_netcdf(
         data_file_path,
-        engine="h5netcdf",
+        # engine="h5netcdf", #CS: I've had better success with the default engine, h5netcdf threw an error.
         encoding={
             f"{fname}": {"zlib": True, "complevel": 4,
                          "fletcher32": True, "_FillValue": np.finfo(np.float32).max}
@@ -244,6 +250,10 @@ def daily_frost_metrics(
         print(f"End date: {end_time}")
     except ValueError as e:
         raise ValueError("start_time and end_time must be provided")
+
+    if end_time <= start_time:
+        raise ValueError("End date must be later the start date")
+
     if end_time - start_time > timedelta(days=2 * 365):
         raise ValueError("Date span should not be exceed 2 years")
 
@@ -258,32 +268,9 @@ def daily_frost_metrics(
     )
 
     logger.info("Calculate daily frost metrics")
-    if bool(masked_lst['time'].isnull().all()):
-        logger.info(
-            "Found masked LST which time dimension is None, potentially caused by date mismatch between LST and CN files")
-        raise ValueError("Found masked LST which time dimension is None, "
-                         "potentially caused by date mismatch between LST and CN files, "
-                         "please contact support@eratos.com")
+    min_temp = process_min_temp(masked_lst)
+    daily_weighted_frost, daily_duration = process_daily_frost_duration(masked_lst, frost_threshold, duration_threshold)
 
-    min_temp = masked_lst.groupby(masked_lst.time.dt.date).min(dim='time')
-    min_temp['date'] = min_temp['date'].astype('datetime64[ns]')
-    min_temp = min_temp.rename({"lst": "min_temp", 'date': 'time'})
-
-    frost_mask = masked_lst < frost_threshold
-    dt_hour = 60 * 10 / 3600
-    weighted_frost = np.abs(masked_lst.where(frost_mask)) * dt_hour
-    daily_weighted_frost = weighted_frost.groupby(
-        weighted_frost.time.dt.date).sum(dim='time')
-    daily_weighted_frost['date'] = daily_weighted_frost['date'].astype(
-        'datetime64[ns]')
-    daily_weighted_frost = daily_weighted_frost.rename(
-        {"lst": "frost_hours", 'date': 'time'})
-
-    duration_mask = masked_lst < duration_threshold
-    duration = duration_mask.astype(float) * dt_hour
-    daily_duration = duration.groupby(duration.time.dt.date).sum(dim='time')
-    daily_duration['date'] = daily_duration['date'].astype('datetime64[ns]')
-    daily_duration = daily_duration.rename({"lst": "duration", 'date': 'time'})
     logger.info("Creating Eratos resource")
 
 

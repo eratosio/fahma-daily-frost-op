@@ -1,33 +1,35 @@
+import json
 import logging
 import math
-
-from eratos_docker.run import ModelRunner
-from docker import APIClient
 import os
-import pytest
-from dotenv import load_dotenv
-import json
-from shapely import wkt
-from eratos.dsutil.netcdf import gridded_geotime_netcdf_props
-from src.daily_frost_metrics_on_demand import daily_frost_metrics
-import time
-from memory_profiler import memory_usage
-import numpy as np
-from shapely.geometry import MultiPoint
-from eratos.creds import AccessTokenCreds
-from eratos.adapter import Adapter
 import threading
-import psutil
+import time
+
 import matplotlib.pyplot as plt
+import numpy as np
+import psutil
+import pytest
+from as_models.ports import DOCUMENT_PORT, INPUT_PORT, OUTPUT_PORT
+from as_models.testing import Context
+from docker import APIClient
+from dotenv import load_dotenv
+from eratos.adapter import Adapter
+from eratos.creds import AccessTokenCreds
+from eratos_docker.run import ModelRunner
+from memory_profiler import memory_usage
+from shapely.geometry import MultiPoint
 
+from src.daily_frost_metrics_on_demand import daily_frost_metrics
+from senaps_wrapper import eratos_operator_wrapper
 
+load_dotenv()
 
 def test_run_app():
     """Runs the model asynchronously for a given WKT file."""
     load_dotenv()
     docker_client = APIClient()
     runner = ModelRunner(
-        "../src",
+        "src",
         docker_client,
     )
     wait_time = 5
@@ -51,9 +53,9 @@ def test_run_app():
                     "secret": os.getenv("ERATOS_SECRET"),
                 },
             },
-            bind_mounts={os.path.realpath('../src') : '/opt/model',
-                         os.path.realpath('../lib/clearnights/clearnights/'): '/usr/local/lib/python3.10/dist-packages/clearnights/',
-                         os.path.realpath('../lib/clearnights_op/src/clearnights_on_demand/'): '/usr/local/lib/python3.10/dist-packages/clearnights_on_demand/'})
+            bind_mounts={os.path.realpath('src') : '/opt/model',
+                         os.path.realpath('lib/clearnights/clearnights/'): '/usr/local/lib/python3.10/dist-packages/clearnights/',
+                         os.path.realpath('lib/clearnights_op/src/clearnights_on_demand/'): '/usr/local/lib/python3.10/dist-packages/clearnights_on_demand/'})
         return result_docs
 
 
@@ -108,6 +110,8 @@ def get_start_date(size):
         return "2023-8-10"
     elif size == 'huge':
         return "2022-4-15"
+
+
 def benchmark_run(model_func, geom, start_date, end_date, frost_threshold, duration_threshold, secret):
     result=None
 
@@ -135,14 +139,9 @@ def benchmark_run(model_func, geom, start_date, end_date, frost_threshold, durat
 
 
 def test_local_frost_metrics_op_geom_size():
-    f = open("../src/secret.json")
-    data = json.load(f)
 
-    eratos_key = data['eratos_key']
-    eratos_secret = data["eratos_secret"]
-
-    secret = {'id': eratos_key,
-              'secret': eratos_secret}
+    secret = {'id': os.getenv('ERATOS_ID'),
+              'secret': os.getenv('ERATOS_SECRET')}
 
 
     end_date = "2024-04-10"
@@ -276,3 +275,35 @@ def test_mem_usage_threading():
 
         plt.show()
 
+
+def test_local_run_like_operator(caplog):
+    caplog.set_level(logging.INFO)
+    
+    test_context = Context()
+
+    test_context.configure_port("config", DOCUMENT_PORT, INPUT_PORT, value=json.dumps({}))
+
+    test_context.configure_port("secrets", DOCUMENT_PORT, INPUT_PORT, value=json.dumps({
+        "id": os.environ.get("ERATOS_ID"),
+        "secret": os.environ.get("ERATOS_SECRET")
+    }))
+    # boorowa_area =   'POLYGON((148.680387 -34.477694, 148.709573 -34.477694, 148.709573 -34.46248, 148.680387 -34.46248, 148.680387 -34.477694))'
+    boorowa_area = 'POLYGON ((148.582535 -34.515044, 148.868866 -34.515044, 148.868866 -34.392179, 148.582535 -34.392179, 148.582535 -34.515044))'
+    test_context.configure_port("input_geom", DOCUMENT_PORT, INPUT_PORT, value=json.dumps(boorowa_area))
+
+    test_context.configure_port("input_duration_threshold", DOCUMENT_PORT, INPUT_PORT, value=json.dumps(0))
+    test_context.configure_port("input_frost_threshold", DOCUMENT_PORT, INPUT_PORT, value=json.dumps(0))
+    test_context.configure_port("input_start_date", DOCUMENT_PORT, INPUT_PORT, value=json.dumps('2025-08-15'))
+    test_context.configure_port("input_end_date", DOCUMENT_PORT, INPUT_PORT, value=json.dumps('2025-08-20'))
+
+    test_context.configure_port("output_frost_metrics_min_temp", DOCUMENT_PORT, OUTPUT_PORT, value='')
+    test_context.configure_port("output_frost_metrics_frost_hours", DOCUMENT_PORT, OUTPUT_PORT, value='')
+    test_context.configure_port("output_frost_metrics_duration", DOCUMENT_PORT, OUTPUT_PORT, value='')
+
+    eratos_operator_wrapper(test_context)
+
+    min_temp_ern = test_context.ports['output_frost_metrics_min_temp'].value
+    frost_hours_ern = test_context.ports['output_frost_metrics_frost_hours'].value
+    duration_ern = test_context.ports['output_frost_metrics_duration'].value
+
+    print(min_temp_ern, frost_hours_ern, duration_ern)

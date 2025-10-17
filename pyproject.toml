@@ -1,0 +1,36 @@
+[project]
+name = "fahma-daily-frost-op"
+version = "1.0.0"
+description = "Default template for PDM package"
+authors = [
+  { name = "Mia Ma", email = "mia.ma@eratos.com" }
+]
+dependencies = [
+    "h5netcdf~=1.6.4",
+    "pandas~=2.0.0",
+    "pyarrow~=21.0.0",
+    "eratos-sdk~=0.20.0",
+    "dask[complete]~=2025.9.1",
+    "dask[distributed]~=2025.9.1",
+    "eratos-as-api~=4.5.0",
+    "eratos-sensor~=2.17.0",
+    "eratos-xarray~=0.2.0",
+    "eratos-tds~=1.3.0",
+    "senaps-dockerbuild @ git+https://github.com/eratosio/senaps-dockerbuilder.git",
+    "clearnights @ file:///${PROJECT_ROOT}/src/dependencies/clearnights-1.0.1-py2.py3-none-any.whl",
+    "fahma-daily-frost-metrics @ file:///${PROJECT_ROOT}/src/dependencies/fahma_daily_frost_metrics-1.1.0-py3-none-any.whl",
+]
+requires-python = "==3.10.*"
+readme = "README.md"
+#license = { text = "none" }
+
+[tool.pdm]
+distribution = false
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "dotenv>=0.9.9",
+    "matplotlib",
+    "memory-profiler",
+]

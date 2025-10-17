@@ -7,10 +7,6 @@
   "entrypoint": "senaps_wrapper.py",
   "dependencies": [
     {
-        "name": "Cython>=4.1.2",
-        "provider": "PIP"
-    },
-    {
         "name": "pandas~=2.0.0",
         "provider": "PIP"
     },
@@ -23,27 +19,23 @@
       "provider": "PIP"
     },
     {
-        "name": "h5netcdf>=1.6.1",
+      "name": "dependencies/fahma_daily_frost_metrics-1.1.0-py3-none-any.whl",
+      "provider": "PIP"
+    },
+    {
+        "name": "eratos-xarray~=0.2.0",
         "provider": "PIP"
     },
     {
-        "name": "numpy~=1.26.4",
+        "name": "pyarrow~=21.0.0",
         "provider": "PIP"
     },
     {
-        "name": "eratos-xarray>=0.1.8",
+        "name": "dask[complete]~=2025.9.1",
         "provider": "PIP"
     },
     {
-        "name": "pyarrow>=20.0.0",
-        "provider": "PIP"
-    },
-    {
-        "name": "dask[complete]>=2025.4.1",
-        "provider": "PIP"
-    },
-    {
-        "name": "dask[distributed]>=2025.4.1",
+        "name": "dask[distributed]~=2025.9.1",
         "provider": "PIP"
     }
   ],

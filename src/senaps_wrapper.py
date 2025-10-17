@@ -1,5 +1,6 @@
 import logging
 import json
+import os.path
 
 from as_models.models import model
 from as_models.runtime.python import Context
@@ -73,7 +74,8 @@ def eratos_operator_wrapper(context: Context):
         outDocNodes[k] = doc
 
     # Run the operator.
-    outputs = op(".", **inputs)
+    code_dir = os.path.dirname(__file__)
+    outputs = op(code_dir, **inputs)
 
     # Output.
     for outputDef in op.resource().prop("outputs"):

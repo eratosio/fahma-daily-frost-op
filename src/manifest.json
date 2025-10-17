@@ -15,7 +15,7 @@
       "provider": "APT"
     },
     {
-      "name": "dependencies/clearnights-1.0.1-py2.py3-none-any.whl",
+      "name": "dependencies/clearnights-1.0.3-py2.py3-none-any.whl",
       "provider": "PIP"
     },
     {
